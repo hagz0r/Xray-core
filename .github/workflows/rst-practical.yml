@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 4
+          fetch-depth: 6
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -36,6 +36,12 @@ jobs:
             --before "$RUNNER_TEMP/xray-before" \
             --after "$RUNNER_TEMP/xray-after" \
             --artifacts "$RUNNER_TEMP/proftpd-reset-evidence"
+      - name: Make fixture artifacts readable by the runner
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/proftpd-reset-evidence" ]; then
+            sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/proftpd-reset-evidence"
+          fi
       - uses: actions/upload-artifact@v7
         if: always()
         with:
