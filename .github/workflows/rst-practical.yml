@@ -1,0 +1,43 @@
+name: TCP reset practical regression
+
+on:
+  push:
+    branches: [ci/rst-practical]
+
+permissions:
+  contents: read
+
+jobs:
+  proftpd:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 4
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install isolated FTP test prerequisite
+        run: |
+          sudo systemctl mask proftpd.service
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y proftpd-core
+      - name: Build patched and baseline Xray
+        run: |
+          go build -o "$RUNNER_TEMP/xray-after" ./main
+          git worktree add --detach "$RUNNER_TEMP/xray-baseline" 0888beb38a9ba45440557175e71ce21cf8ba3b13
+          cd "$RUNNER_TEMP/xray-baseline"
+          go build -o "$RUNNER_TEMP/xray-before" ./main
+      - name: Compare real FTP upload outcomes
+        run: |
+          sudo python3 testing/tools/proftpd_rst_repro.py \
+            --before "$RUNNER_TEMP/xray-before" \
+            --after "$RUNNER_TEMP/xray-after" \
+            --artifacts "$RUNNER_TEMP/proftpd-reset-evidence"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: proftpd-reset-evidence
+          path: ${{ runner.temp }}/proftpd-reset-evidence
